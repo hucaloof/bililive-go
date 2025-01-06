@@ -32,6 +32,13 @@ func parseInfo(ctx context.Context, l live.Live) *live.Info {
 	info := obj.(*live.Info)
 	info.Listening = inst.ListenerManager.(listeners.Manager).HasListener(ctx, l.GetLiveId())
 	info.Recording = inst.RecorderManager.(recorders.Manager).HasRecorder(ctx, l.GetLiveId())
+	
+	// 获取直播间配置
+	room, err := inst.Config.GetLiveRoomByUrl(l.GetRawUrl())
+	if err == nil {
+		info.KeepStatus = room.KeepStatus
+	}
+	
 	return info
 }
 
@@ -95,6 +102,14 @@ func parseLiveAction(writer http.ResponseWriter, r *http.Request) {
 			return
 		} else {
 			room.IsListening = false
+		}
+	case "toggleKeep":
+		room.KeepStatus = !room.KeepStatus
+		if err := inst.Config.Marshal(); err != nil {
+			resp.ErrNo = http.StatusBadRequest
+			resp.ErrMsg = err.Error()
+			writeJsonWithStatusCode(writer, http.StatusBadRequest, resp)
+			return
 		}
 	default:
 		resp.ErrNo = http.StatusBadRequest
@@ -188,8 +203,13 @@ func addLiveImpl(ctx context.Context, urlStr string, isListen bool) (info *live.
 			Url:         u.String(),
 			IsListening: isListen,
 			LiveId:      newLive.GetLiveId(),
+			KeepStatus:  false,
 		}
 		inst.Config.LiveRooms = append(inst.Config.LiveRooms, liveRoom)
+		
+		if err := inst.Config.Marshal(); err != nil {
+			inst.Logger.Error(err)
+		}
 	}
 	return info, nil
 }
@@ -227,6 +247,9 @@ func removeLiveImpl(ctx context.Context, live live.Live) error {
 	}
 	delete(inst.Lives, live.GetLiveId())
 	inst.Config.RemoveLiveRoomByUrl(live.GetRawUrl())
+	if err := inst.Config.Marshal(); err != nil {
+		return err
+	}
 	return nil
 }
 

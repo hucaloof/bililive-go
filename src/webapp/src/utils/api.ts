@@ -109,6 +109,14 @@ class API {
     getFileList(path: string = "") {
         return utils.requestGet(`${BASE_URL}/file/${path}`);
     }
+
+    /**
+     * 切换保留状态
+     * @param id 直播间id
+     */
+    toggleKeepStatus(id: string) {
+        return utils.requestGet(`${BASE_URL}/lives/${id}/toggleKeep`);
+    }
 }
 
 export default API;

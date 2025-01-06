@@ -12,22 +12,24 @@ type Info struct {
 	Initializing         bool
 	CustomLiveId         string
 	AudioOnly            bool
+	KeepStatus          bool
 }
 
 func (i *Info) MarshalJSON() ([]byte, error) {
 	t := struct {
 		Id                ID     `json:"id"`
-		LiveUrl           string `json:"live_url"`
-		PlatformCNName    string `json:"platform_cn_name"`
-		HostName          string `json:"host_name"`
-		RoomName          string `json:"room_name"`
-		Status            bool   `json:"status"`
-		Listening         bool   `json:"listening"`
-		Recording         bool   `json:"recording"`
-		Initializing      bool   `json:"initializing"`
-		LastStartTime     string `json:"last_start_time,omitempty"`
-		LastStartTimeUnix int64  `json:"last_start_time_unix,omitempty"`
-		AudioOnly         bool   `json:"audio_only"`
+			LiveUrl           string `json:"live_url"`
+			PlatformCNName    string `json:"platform_cn_name"`
+			HostName          string `json:"host_name"`
+			RoomName          string `json:"room_name"`
+			Status            bool   `json:"status"`
+			Listening         bool   `json:"listening"`
+			Recording         bool   `json:"recording"`
+			Initializing      bool   `json:"initializing"`
+			LastStartTime     string `json:"last_start_time,omitempty"`
+			LastStartTimeUnix int64  `json:"last_start_time_unix,omitempty"`
+			AudioOnly         bool   `json:"audio_only"`
+			KeepStatus        bool   `json:"keep_status"`
 	}{
 		Id:             i.Live.GetLiveId(),
 		LiveUrl:        i.Live.GetRawUrl(),
@@ -39,6 +41,7 @@ func (i *Info) MarshalJSON() ([]byte, error) {
 		Recording:      i.Recording,
 		Initializing:   i.Initializing,
 		AudioOnly:      i.AudioOnly,
+		KeepStatus:     i.KeepStatus,
 	}
 	if !i.Live.GetLastStartTime().IsZero() {
 		t.LastStartTime = i.Live.GetLastStartTime().Format("2006-01-02 15:04:05")

@@ -6,6 +6,7 @@ import API from '../../utils/api';
 import './live-list.css';
 import { RouteComponentProps } from "react-router-dom";
 import { ColumnProps } from 'antd/lib/table';
+import { parse as yamlParse, stringify as yamlStringify } from 'yaml';
 
 const api = new API();
 
@@ -27,13 +28,27 @@ interface ItemData {
     room: Room,
     address: string,
     tags: string[],
-    listening: boolean
-    roomId: string
+    listening: boolean,
+    roomId: string,
+    keepStatus: boolean
 }
 
 interface Room {
     roomName: string;
     url: string;
+}
+
+interface ConfigLiveRoom {
+    url: string;
+    is_listening: boolean;
+    quality: number;
+    audio_only: boolean;
+    keep_status: boolean;
+}
+
+interface Config {
+    live_rooms: ConfigLiveRoom[];
+    [key: string]: any;
 }
 
 class LiveList extends React.Component<Props, IState> {
@@ -85,16 +100,36 @@ class LiveList extends React.Component<Props, IState> {
         defaultSortOrder: 'descend',
     };
 
+    keepStatus: ColumnProps<ItemData> = {
+        title: '是否保留',
+        key: 'keepStatus',
+        dataIndex: 'keepStatus',
+        render: (keepStatus: boolean) => (
+            <span>
+                {[keepStatus ? '已保留' : '未保留'].map(tag => {
+                    let color = 'green';
+                    if (tag === '未保留') {
+                        color = 'grey';
+                    }
+                    return (
+                        <Tag color={color} key={tag}>
+                            {tag.toUpperCase()}
+                        </Tag>
+                    );
+                })}
+            </span>
+        ),
+    };
+
     runAction: ColumnProps<ItemData> = {
         title: '操作',
         key: 'action',
-        dataIndex: 'listening',
-        render: (listening: boolean, data: ItemData) => (
+        render: (_, data: ItemData) => (
             <span>
                 <PopDialog
-                    title={listening ? "确定停止监控？" : "确定开启监控？"}
+                    title={data.listening ? "确定停止监控？" : "确定开启监控？"}
                     onConfirm={(e) => {
-                        if (listening) {
+                        if (data.listening) {
                             //停止监控
                             api.stopRecord(data.roomId)
                                 .then(rsp => {
@@ -116,23 +151,44 @@ class LiveList extends React.Component<Props, IState> {
                                 });
                         }
                     }}>
-                    <Button type="link" size="small">{listening ? "停止监控" : "开启监控"}</Button>
+                    <Button type="link" size="small">{data.listening ? "停止监控" : "开启监控"}</Button>
                 </PopDialog>
                 <Divider type="vertical" />
-                <PopDialog title="确定删除当前直播间？"
+                <PopDialog
+                    title={data.keepStatus ? "确定取消保留？" : "确定保留该直播间？"}
                     onConfirm={(e) => {
-                        api.deleteRoom(data.roomId)
+                        api.toggleKeepStatus(data.roomId)
                             .then(rsp => {
                                 api.saveSettingsInBackground();
                                 this.refresh();
                             })
                             .catch(err => {
-                                alert(`删除直播间失败:\n${err}`);
+                                alert(`操作失败:\n${err}`);
                             });
                     }}>
-                    <Button type="link" size="small">删除</Button>
+                    <Button type="link" size="small">
+                        {data.keepStatus ? "取消保留" : "保留"}
+                    </Button>
                 </PopDialog>
                 <Divider type="vertical" />
+                {!data.keepStatus && (
+                    <>
+                        <PopDialog title="确定删除当前直播间？"
+                            onConfirm={(e) => {
+                                api.deleteRoom(data.roomId)
+                                    .then(rsp => {
+                                        api.saveSettingsInBackground();
+                                        this.refresh();
+                                    })
+                                    .catch(err => {
+                                        alert(`删除直播间失败:\n${err}`);
+                                    });
+                            }}>
+                            <Button type="link" size="small">删除</Button>
+                        </PopDialog>
+                        <Divider type="vertical" />
+                    </>
+                )}
                 <Button type="link" size="small" onClick={(e) => {
                     this.props.history.push(`/fileList/${data.address}/${data.name}`);
                 }}>文件</Button>
@@ -164,6 +220,7 @@ class LiveList extends React.Component<Props, IState> {
             },
         },
         this.runStatus,
+        this.keepStatus,
         this.runAction
     ];
 
@@ -270,7 +327,8 @@ class LiveList extends React.Component<Props, IState> {
                         address: item.platform_cn_name,
                         tags,
                         listening: item.listening,
-                        roomId: item.id
+                        roomId: item.id,
+                        keepStatus: item.keep_status
                     };
                 });
             })
